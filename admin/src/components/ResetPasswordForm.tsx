@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
+import { PasswordInput } from "./PasswordInput";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
@@ -58,9 +59,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
           New password
         </label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           required
           minLength={8}
           pattern={PASSWORD_PATTERN}
@@ -68,6 +68,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
           autoFocus
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          wrapperClassName="w-full"
           className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
         />
         <p className="mt-1 text-xs text-slate-400">{PASSWORD_REQUIREMENTS_HINT}</p>
@@ -77,13 +78,13 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <label htmlFor="confirmPassword" className="mb-1 block text-sm font-medium text-slate-700">
           Confirm new password
         </label>
-        <input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           required
           minLength={8}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          wrapperClassName="w-full"
           className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
         />
       </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isApiError } from "@/lib/apiErrors";
 import { auth } from "@/lib/auth";
 import { apiClient } from "@/lib/apiClient";
+import { getPortalSettings } from "@/lib/settings";
 import { ACTIVE_DELIVERY_STATUSES } from "@/lib/rbac";
 
 const requestSchema = z.object({
@@ -65,5 +66,33 @@ export async function POST(
     requestedById: session.user.id,
     ...parsed.data,
   });
+
+  // Best-effort: staff currently only learn about a new request by
+  // checking /driver themselves, so let this portal's own contact address
+  // know one just came in — never fails the request itself over an
+  // email/config hiccup (same convention as api/'s packageStatusNotify.ts).
+  try {
+    const settings = await getPortalSettings();
+    if (settings.contactEmail) {
+      const address = [parsed.data.addressLine1, parsed.data.addressLine2, parsed.data.cityParish, parsed.data.country]
+        .filter(Boolean)
+        .join(", ");
+      await apiClient.tenant.sendEmail({
+        to: settings.contactEmail,
+        replyTo: customer.email,
+        subject: `New delivery request — ${pkg.trackingNumber}`,
+        html: `
+          <p>A customer just requested home delivery for a package.</p>
+          <p><strong>Tracking number:</strong> ${pkg.trackingNumber}</p>
+          <p><strong>Customer:</strong> ${customer.name} (${customer.email})</p>
+          <p><strong>Deliver to:</strong> ${address}</p>
+          <p>Assign a driver from the Deliveries page.</p>
+        `,
+      });
+    }
+  } catch (err) {
+    console.error("[request-delivery] failed to send notification email", err);
+  }
+
   return NextResponse.json({ delivery }, { status: 201 });
 }

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
+import { PasswordInput } from "./PasswordInput";
 
 export interface StaffRow {
   id: string;
@@ -149,15 +150,15 @@ export function StaffEditModal({
             <label htmlFor="staff-password" className="mb-1 block text-sm font-medium text-slate-700">
               Reset password (optional)
             </label>
-            <input
+            <PasswordInput
               id="staff-password"
-              type="password"
               minLength={8}
               pattern={PASSWORD_PATTERN}
               title={PASSWORD_REQUIREMENTS_HINT}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Leave blank to keep their current password"
+              wrapperClassName="w-full"
               className={inputClass}
             />
             <p className="mt-1 text-xs text-slate-400">

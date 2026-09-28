@@ -157,13 +157,29 @@ else
     if [ "${#devices[@]}" -eq 0 ]; then
       echo "  [ERROR] no iOS or Android target available — open a simulator or connect a device, then re-run"
     else
-      joined=$(IFS=,; echo "${devices[*]}")
-      (
-        cd customer-portal-mobile || exit 1
-        nohup flutter run -d "$joined" >"../logs/mobile.log" 2>&1 &
-        disown
-      )
-      echo "  [start] flutter run -d $joined → logs/mobile.log"
+      # The app refuses to run without an API key (see api_config.dart) —
+      # every call, including login, throws before it ever reaches the
+      # network, which just looks like "not connecting". This build only
+      # targets Swift Cargo Express, so use customer-portal's own tenant
+      # key: a rotated key lands in its data/runtime-config.json (see
+      # apiKeyStore.ts), which takes precedence over .env the same way
+      # apiClient.ts's createApiClient() prefers it.
+      mobile_api_key=$(grep -o '"apiKey"[[:space:]]*:[[:space:]]*"[^"]*"' customer-portal/data/runtime-config.json 2>/dev/null | sed -E 's/.*"([^"]*)"$/\1/')
+      if [ -z "$mobile_api_key" ]; then
+        mobile_api_key=$(grep -m1 '^TENANT_API_KEY=' customer-portal/.env 2>/dev/null | sed -E 's/^TENANT_API_KEY="?([^"]*)"?[[:space:]]*$/\1/')
+      fi
+
+      if [ -z "$mobile_api_key" ]; then
+        echo "  [ERROR] no TENANT_API_KEY found (checked customer-portal/data/runtime-config.json and customer-portal/.env) — the app would fail to connect without one"
+      else
+        joined=$(IFS=,; echo "${devices[*]}")
+        (
+          cd customer-portal-mobile || exit 1
+          nohup flutter run -d "$joined" --dart-define="API_KEY=$mobile_api_key" >"../logs/mobile.log" 2>&1 &
+          disown
+        )
+        echo "  [start] flutter run -d $joined → logs/mobile.log"
+      fi
     fi
   fi
 fi

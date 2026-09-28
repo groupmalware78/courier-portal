@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/apiClient";
 import {
   canViewPackages,
   editablePackageFields,
+  allowedStatusValues,
   DUTY_FIELDS,
   DUTY_MIN_DECLARED_VALUE,
   type EditablePackageField,
@@ -80,6 +81,14 @@ export async function PATCH(
   if (disallowed.length > 0) {
     return NextResponse.json(
       { error: `You are not allowed to edit: ${disallowed.join(", ")}` },
+      { status: 403 }
+    );
+  }
+
+  const statusRestriction = allowedStatusValues(session.user.role);
+  if (parsed.data.status !== undefined && statusRestriction && !statusRestriction.includes(parsed.data.status)) {
+    return NextResponse.json(
+      { error: `You may only set status to: ${statusRestriction.join(", ")}` },
       { status: 403 }
     );
   }

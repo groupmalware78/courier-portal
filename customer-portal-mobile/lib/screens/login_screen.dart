@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/auth_store.dart';
 import '../models/user.dart';
+import '../widgets/password_field.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -82,10 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter your email' : null,
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  PasswordField(
                     controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+                    labelText: 'Password',
                     validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                     onFieldSubmitted: (_) => _submit(),
                   ),

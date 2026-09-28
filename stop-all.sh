@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Stops everything run-all.sh starts: Service-Provider (admin — also
 # covers warehouse package logging/editing, merged into this app), the
-# three customer-portal instances, api, and the mobile app's `flutter
-# run` session. Only touches processes actually bound to these ports /
-# matching the flutter run command — never a blind `kill` by name.
+# three customer-portal instances, api, the mobile app's `flutter run`
+# session, and any iOS Simulator / Android emulator that run-all.sh
+# booted. Only touches processes actually bound to these ports /
+# matching the flutter run command / running as the simulator or
+# emulator itself — never a blind `kill` by name.
 
 set -uo pipefail
 
@@ -43,5 +45,30 @@ else
   echo "  [skip]  mobile app — not running"
 fi
 
+# iOS Simulator: shut down whatever's booted (mirrors run-all.sh, which
+# boots one if none is running).
+if command -v xcrun >/dev/null 2>&1; then
+  booted_ios=$(xcrun simctl list devices booted 2>/dev/null | grep -oE '[0-9A-F-]{36}')
+  if [ -n "$booted_ios" ]; then
+    xcrun simctl shutdown all >/dev/null 2>&1
+    echo "  [stop]  iOS Simulator"
+  else
+    echo "  [skip]  iOS Simulator — not running"
+  fi
+else
+  echo "  [skip]  iOS Simulator — xcrun not found"
+fi
+
+# Android emulator: kill the emulator process run-all.sh started (the
+# `emulator` binary spawns a `qemu-system-*` child that outlives it, so
+# match on that rather than the launcher).
+android_pid=$(pgrep -f "qemu-system.*-avd" 2>/dev/null | head -1)
+if [ -n "$android_pid" ]; then
+  kill "$android_pid" 2>/dev/null
+  echo "  [stop]  Android emulator"
+else
+  echo "  [skip]  Android emulator — not running"
+fi
+
 echo
-echo "Done. (The mobile app's flutter debug session is stopped; the app itself may still be installed and open on the simulator/device.)"
+echo "Done."

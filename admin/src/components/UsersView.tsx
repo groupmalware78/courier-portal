@@ -5,6 +5,7 @@ import type { Role } from "@prisma/client";
 import { ROLES, ROLE_LABELS } from "@/lib/rbac";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
 import { Pager } from "./Pager";
+import { PasswordInput } from "./PasswordInput";
 
 const PAGE_SIZE = 10;
 
@@ -125,16 +126,16 @@ export function UsersView({
             onChange={(e) => setEmail(e.target.value)}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
           />
-          <input
+          <PasswordInput
             required
-            type="password"
             minLength={8}
             pattern={PASSWORD_PATTERN}
             title={PASSWORD_REQUIREMENTS_HINT}
             placeholder="Temporary password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            wrapperClassName="w-full"
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
           />
           <select
             value={role}

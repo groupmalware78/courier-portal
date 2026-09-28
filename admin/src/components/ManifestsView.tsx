@@ -11,6 +11,7 @@ interface ManifestRow {
   triggeredBy: string;
   invoiceAmount: number | null;
   invoiceGeneratedAt: string | null;
+  invoicePaidAt: string | null;
   company: { id: string; name: string; code: string };
 }
 
@@ -83,6 +84,21 @@ export function ManifestsView({
     }
   }
 
+  async function handleTogglePaid(manifest: ManifestRow) {
+    setError(null);
+    const res = await fetch(`/api/manifests/${manifest.id}/paid`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid: !manifest.invoicePaidAt }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Failed to update payment status.");
+      return;
+    }
+    setManifests((prev) => prev.map((m) => (m.id === manifest.id ? data.manifest : m)));
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -117,6 +133,7 @@ export function ManifestsView({
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Packages</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Triggered by</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Invoice</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Paid</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <span className="sr-only">Actions</span>
                 </th>
@@ -146,6 +163,19 @@ export function ManifestsView({
                       </>
                     ) : (
                       <span className="text-slate-400">Not generated</span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {m.invoiceAmount != null && (
+                      <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={!!m.invoicePaidAt}
+                          onChange={() => handleTogglePaid(m)}
+                          className="h-4 w-4 rounded border-slate-300"
+                        />
+                        {m.invoicePaidAt ? "Paid" : "Outstanding"}
+                      </label>
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">

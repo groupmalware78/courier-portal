@@ -3,6 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { StaffEditModal, type StaffRow } from "./StaffEditModal";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
+import { PasswordInput } from "./PasswordInput";
 import { ROLE_LABELS } from "@/lib/rbac";
 import { Pager } from "./Pager";
 
@@ -109,16 +110,16 @@ export function StaffView({ initialStaff }: { initialStaff: StaffRow[] }) {
             onChange={(e) => setEmail(e.target.value)}
             className={inputClass}
           />
-          <input
+          <PasswordInput
             required
-            type="password"
             minLength={8}
             pattern={PASSWORD_PATTERN}
             title={PASSWORD_REQUIREMENTS_HINT}
             placeholder="Temporary password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
+            wrapperClassName="w-full"
+            className={`${inputClass} w-full`}
           />
           <select
             value={role}

@@ -123,6 +123,8 @@ export interface PortalSettings {
   welcomeMessage: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  termsContent: string | null;
+  privacyContent: string | null;
   updatedAt: string;
   logoImageFileName: string | null;
   faviconImageFileName: string | null;

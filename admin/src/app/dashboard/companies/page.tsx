@@ -10,8 +10,8 @@ export default async function CompaniesPage() {
     redirect("/dashboard");
   }
 
-  // Explicit select — apiKeyHash/apiKeyPreviousHash/apiKeyWebhookSecret
-  // must never reach the client, even serialized into an RSC payload.
+  // Explicit select — apiKeyHash must never reach the client, even
+  // serialized into an RSC payload.
   const companies = await prisma.company.findMany({
     orderBy: { name: "asc" },
     select: {
@@ -21,8 +21,6 @@ export default async function CompaniesPage() {
       apiKeyPrefix: true,
       apiKeyScope: true,
       apiKeyRotatedAt: true,
-      apiKeyRotationDays: true,
-      apiKeyWebhookUrl: true,
       requestsPerMinute: true,
       contactName: true,
       contactEmail: true,

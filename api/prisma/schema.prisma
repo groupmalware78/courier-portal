@@ -80,6 +80,7 @@ enum AuditEntity {
   CUSTOMER
   USER
   MANIFEST
+  PORTAL_INVOICE
 }
 
 // FULL grants read+write on every /v1/** route for the tenant; READ_ONLY
@@ -88,13 +89,6 @@ enum AuditEntity {
 enum ApiKeyScope {
   FULL
   READ_ONLY
-}
-
-// Which flow produced an ApiKeyRotationEvent row — see the comment there.
-enum ApiKeyRotationTrigger {
-  ADMIN_MANUAL
-  PORTAL_MANUAL
-  AUTOMATIC
 }
 
 // A tenant's chosen email-sending provider for its own PortalSettings —
@@ -161,27 +155,11 @@ model Company {
   apiKeyHash   String   @unique
   apiKeyPrefix String
   apiKeyScope  ApiKeyScope @default(FULL)
-  // Set only while a grace-period rotation (PORTAL_MANUAL or AUTOMATIC) is
-  // in effect — the old key's hash, still accepted by internalAuth.ts
-  // until apiKeyPreviousExpiresAt, so already-running processes have time
-  // to pick up the new key before the old one stops working. ADMIN_MANUAL
-  // rotation (Service-Provider staff revoking a leaked key) clears both
-  // fields instead — that path is an intentional hard cutover.
-  apiKeyPreviousHash      String?   @unique
-  apiKeyPreviousExpiresAt DateTime?
+  // Last time this company's key was issued (creation, or a manual
+  // regenerate — see admin's regenerate-key route). No automatic/scheduled
+  // rotation exists; a new key is always a hard cutover, not a grace-period
+  // swap.
   apiKeyRotatedAt         DateTime  @default(now())
-  // Days between automatic rotations; 0 disables automatic rotation for
-  // this company (see api/'s apiKeyRotationScheduler). Keep this at 0 for
-  // any tenant with a shipped mobile build until that app can fetch a
-  // rotated key at runtime — see customer-portal-mobile/lib/core/api_config.dart.
-  apiKeyRotationDays Int @default(90)
-  // Where api/'s scheduler pushes a freshly-rotated raw key on automatic
-  // rotation (signed with apiKeyWebhookSecret) — see
-  // ../../api/src/lib/apiKeyRotationWebhook.ts. Null disables the push;
-  // the tenant then relies on its own grace-period poller to notice and
-  // prompt a manual rotation instead.
-  apiKeyWebhookUrl    String?
-  apiKeyWebhookSecret String?
   // Requests per company per minute, enforced by api/'s Redis-backed
   // limiter (see ../../api/src/lib/rateLimit.ts). 0 = unlimited.
   requestsPerMinute Int @default(300)
@@ -202,26 +180,8 @@ model Company {
   locations      Location[]
   faqItems       FaqItem[]
   manifests      Manifest[]
-  apiKeyRotationEvents ApiKeyRotationEvent[]
 
   @@map("companies")
-}
-
-// Append-only rotation history, one row per rotation regardless of
-// trigger — mirrors the PackageStatusEvent pattern below. Never stores a
-// raw key, only metadata about the event.
-model ApiKeyRotationEvent {
-  id                 String                @id @default(cuid())
-  companyId          String
-  company            Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  trigger            ApiKeyRotationTrigger
-  rotatedAt          DateTime              @default(now())
-  gracePeriodEndsAt  DateTime?
-  webhookDeliveredAt DateTime?
-  webhookAttempts    Int                   @default(0)
-
-  @@index([companyId, rotatedAt])
-  @@map("api_key_rotation_events")
 }
 
 // Was a read-only mirror of ../customer-portal's own table when that app
@@ -269,6 +229,14 @@ model PortalSettings {
   welcomeMessage String?
   contactEmail   String?
   contactPhone   String?
+  // Tenant-specific Terms and Conditions / Privacy Policy body text,
+  // edited by ADMIN under customer-portal's /admin/settings (see
+  // LegalContentForm.tsx). Null means "use the default boilerplate" — see
+  // customer-portal's src/app/terms/page.tsx and src/app/privacy/page.tsx
+  // — so tenants who never touch this keep seeing exactly what they see
+  // today.
+  termsContent   String?
+  privacyContent String?
   updatedAt      DateTime @updatedAt
 
   // Manifest auto-generation schedule. Time is "HH:mm" in the server's

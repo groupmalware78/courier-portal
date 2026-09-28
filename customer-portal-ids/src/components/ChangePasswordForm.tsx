@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
+import { PasswordInput } from "./PasswordInput";
 
 export function ChangePasswordForm() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -56,12 +57,12 @@ export function ChangePasswordForm() {
         <label htmlFor="current-password" className="mb-1 block text-sm font-medium text-slate-700">
           Current password
         </label>
-        <input
+        <PasswordInput
           id="current-password"
-          type="password"
           required
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
+          wrapperClassName="w-full max-w-sm"
           className={inputClass}
         />
       </div>
@@ -69,9 +70,8 @@ export function ChangePasswordForm() {
         <label htmlFor="new-password" className="mb-1 block text-sm font-medium text-slate-700">
           New password
         </label>
-        <input
+        <PasswordInput
           id="new-password"
-          type="password"
           required
           minLength={8}
           pattern={PASSWORD_PATTERN}
@@ -79,6 +79,7 @@ export function ChangePasswordForm() {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="At least 8 characters"
+          wrapperClassName="w-full max-w-sm"
           className={inputClass}
         />
         <p className="mt-1 text-xs text-slate-400">{PASSWORD_REQUIREMENTS_HINT}</p>
@@ -87,13 +88,13 @@ export function ChangePasswordForm() {
         <label htmlFor="confirm-password" className="mb-1 block text-sm font-medium text-slate-700">
           Confirm new password
         </label>
-        <input
+        <PasswordInput
           id="confirm-password"
-          type="password"
           required
           minLength={8}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          wrapperClassName="w-full max-w-sm"
           className={inputClass}
         />
       </div>

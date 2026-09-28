@@ -16,6 +16,8 @@ const DEFAULT_SETTINGS = {
   welcomeMessage: null as string | null,
   contactEmail: null as string | null,
   contactPhone: null as string | null,
+  termsContent: null as string | null,
+  privacyContent: null as string | null,
   manifestAutoGenerate: false,
   manifestTime: null as string | null,
   manifestDays: [] as string[],

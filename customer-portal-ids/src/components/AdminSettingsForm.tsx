@@ -7,6 +7,7 @@ import { WarehouseSettingsForm, type WarehouseFields } from "./WarehouseSettings
 import { BankingSettingsForm, type BankingFields } from "./BankingSettingsForm";
 import { ManifestScheduleForm, type ScheduleFields } from "./ManifestScheduleForm";
 import { EmailProviderSettingsForm, type EmailProviderFields } from "./EmailProviderSettingsForm";
+import { LegalContentForm, type LegalContentFields } from "./LegalContentForm";
 import type { EmailProviderStatus } from "@/lib/apiTypes";
 
 interface InitialSettings {
@@ -22,6 +23,8 @@ interface InitialSettings {
   welcomeMessage: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  termsContent: string | null;
+  privacyContent: string | null;
   warehouseName: string | null;
   warehouseAddressLine1: string | null;
   warehouseAddressLine2: string | null;
@@ -76,6 +79,10 @@ export function AdminSettingsForm({
     bankRoutingNumber: initial.bankRoutingNumber ?? "",
     bankBranch: initial.bankBranch ?? "",
   });
+  const [legal, setLegal] = useState<LegalContentFields>({
+    termsContent: initial.termsContent ?? "",
+    privacyContent: initial.privacyContent ?? "",
+  });
   const [schedule, setSchedule] = useState<ScheduleFields>({
     manifestAutoGenerate: initial.manifestAutoGenerate,
     manifestTime: initial.manifestTime ?? "08:00",
@@ -108,7 +115,7 @@ export function AdminSettingsForm({
     setError(null);
     setSuccess(false);
 
-    const [brandingRes, warehouseRes, bankingRes, scheduleRes, emailProviderRes] = await Promise.all([
+    const [brandingRes, warehouseRes, bankingRes, legalRes, scheduleRes, emailProviderRes] = await Promise.all([
       fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -123,6 +130,11 @@ export function AdminSettingsForm({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(banking),
+      }),
+      fetch("/api/admin/legal", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(legal),
       }),
       fetch("/api/admin/manifest-schedule", {
         method: "PATCH",
@@ -145,7 +157,7 @@ export function AdminSettingsForm({
 
     setSubmitting(false);
 
-    for (const res of [brandingRes, warehouseRes, bankingRes, scheduleRes, emailProviderRes]) {
+    for (const res of [brandingRes, warehouseRes, bankingRes, legalRes, scheduleRes, emailProviderRes]) {
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setError(data?.error ?? "Failed to save settings.");
@@ -175,6 +187,7 @@ export function AdminSettingsForm({
       />
       <WarehouseSettingsForm value={warehouse} onChange={withDirty(setWarehouse)} />
       <BankingSettingsForm value={banking} onChange={withDirty(setBanking)} />
+      <LegalContentForm value={legal} onChange={withDirty(setLegal)} />
       <ManifestScheduleForm value={schedule} onChange={withDirty(setSchedule)} />
       <EmailProviderSettingsForm
         value={emailProvider}

@@ -79,6 +79,7 @@ enum AuditEntity {
   CUSTOMER
   USER
   MANIFEST
+  PORTAL_INVOICE
 }
 
 // FULL grants read+write on every /v1/** route for the tenant; READ_ONLY
@@ -87,13 +88,6 @@ enum AuditEntity {
 enum ApiKeyScope {
   FULL
   READ_ONLY
-}
-
-// Which flow produced an ApiKeyRotationEvent row — see the comment there.
-enum ApiKeyRotationTrigger {
-  ADMIN_MANUAL
-  PORTAL_MANUAL
-  AUTOMATIC
 }
 
 // A tenant's chosen email-sending provider for its own PortalSettings —
@@ -166,6 +160,11 @@ model PlatformSettings {
   // invoice. Locked into Manifest.invoiceDueDate at generation time, not
   // recomputed retroactively if this later changes.
   paymentDueDays Int?
+  // The flat monthly portal-lease fee, applied to every company alike —
+  // one rate for all tenants, unlike Company.hostingCostMonthly below
+  // (which does vary per company). Set on /dashboard/portal-fees, snapshot
+  // onto each PortalInvoice at generation time (see the comment there).
+  portalFeeMonthly Float  @default(0)
   updatedAt      DateTime @updatedAt
 
   @@map("platform_settings")
@@ -207,30 +206,22 @@ model Company {
   apiKeyHash   String   @unique
   apiKeyPrefix String
   apiKeyScope  ApiKeyScope @default(FULL)
-  // Set only while a grace-period rotation (PORTAL_MANUAL or AUTOMATIC) is
-  // in effect — the old key's hash, still accepted by internalAuth.ts
-  // until apiKeyPreviousExpiresAt, so already-running processes have time
-  // to pick up the new key before the old one stops working. ADMIN_MANUAL
-  // rotation (Service-Provider staff revoking a leaked key) clears both
-  // fields instead — that path is an intentional hard cutover.
-  apiKeyPreviousHash      String?   @unique
-  apiKeyPreviousExpiresAt DateTime?
+  // Last time this company's key was issued (creation, or a manual
+  // regenerate — see admin's regenerate-key route). No automatic/scheduled
+  // rotation exists; a new key is always a hard cutover, not a grace-period
+  // swap.
   apiKeyRotatedAt         DateTime  @default(now())
-  // Days between automatic rotations; 0 disables automatic rotation for
-  // this company (see api/'s apiKeyRotationScheduler). Keep this at 0 for
-  // any tenant with a shipped mobile build until that app can fetch a
-  // rotated key at runtime — see customer-portal-mobile/lib/core/api_config.dart.
-  apiKeyRotationDays Int @default(90)
-  // Where api/'s scheduler pushes a freshly-rotated raw key on automatic
-  // rotation (signed with apiKeyWebhookSecret) — see
-  // ../../api/src/lib/apiKeyRotationWebhook.ts. Null disables the push;
-  // the tenant then relies on its own grace-period poller to notice and
-  // prompt a manual rotation instead.
-  apiKeyWebhookUrl    String?
-  apiKeyWebhookSecret String?
   // Requests per company per minute, enforced by api/'s Redis-backed
   // limiter (see ../../api/src/lib/rateLimit.ts). 0 = unlimited.
   requestsPerMinute Int @default(300)
+  // This platform's own estimated monthly hosting cost for this company's
+  // customer-portal deployment — varies per company (unlike
+  // PlatformSettings.portalFeeMonthly, one flat lease rate for everyone).
+  // Set on /dashboard/portal-fees, billed alongside the portal fee on the
+  // monthly PortalInvoice below. Distinct from requestsPerMinute/
+  // apiKeyScope (access controls, not billing) and from Manifest's
+  // per-manifest invoice (packages × PlatformSettings.perPackageRate).
+  hostingCostMonthly Float @default(0)
   contactName  String?
   contactEmail String?  @unique
   contactPhone String?
@@ -251,26 +242,42 @@ model Company {
   locations      Location[]
   faqItems       FaqItem[]
   manifests      Manifest[]
-  apiKeyRotationEvents ApiKeyRotationEvent[]
+  portalInvoices PortalInvoice[]
 
   @@map("companies")
 }
 
-// Append-only rotation history, one row per rotation regardless of
-// trigger — mirrors the PackageStatusEvent pattern below. Never stores a
-// raw key, only metadata about the event.
-model ApiKeyRotationEvent {
-  id                 String                @id @default(cuid())
-  companyId          String
-  company            Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  trigger            ApiKeyRotationTrigger
-  rotatedAt          DateTime              @default(now())
-  gracePeriodEndsAt  DateTime?
-  webhookDeliveredAt DateTime?
-  webhookAttempts    Int                   @default(0)
+// The Service-Provider platform's own monthly bill to a company for its
+// portal lease + hosting cost (see PlatformSettings.portalFeeMonthly and
+// Company.hostingCostMonthly above) — distinct from Manifest's
+// per-manifest invoice (packages × PlatformSettings.perPackageRate). One
+// row per company per calendar month; period is always normalized to the
+// 1st of that month, and regenerating the same period overwrites the
+// existing row's amounts/PDF rather than creating a duplicate (see
+// @@unique).
+model PortalInvoice {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period            DateTime
+  // Snapshots of PlatformSettings.portalFeeMonthly/
+  // Company.hostingCostMonthly at generation time — a later rate change
+  // doesn't retroactively alter an already-generated invoice.
+  portalFeeAmount   Float
+  hostingCostAmount Float
+  totalAmount       Float
+  invoicePdf         Bytes?
+  invoiceFileName    String?
+  invoiceGeneratedAt DateTime?
+  invoiceDueDate     DateTime?
+  // Null = outstanding; set = paid — the identical convention as
+  // Manifest.invoicePaidAt below.
+  invoicePaidAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  @@index([companyId, rotatedAt])
-  @@map("api_key_rotation_events")
+  @@unique([companyId, period])
+  @@map("portal_invoices")
 }
 
 // Was a read-only mirror of ../customer-portal's own table when that app
@@ -318,6 +325,14 @@ model PortalSettings {
   welcomeMessage String?
   contactEmail   String?
   contactPhone   String?
+  // Tenant-specific Terms and Conditions / Privacy Policy body text,
+  // edited by ADMIN under customer-portal's /admin/settings (see
+  // LegalContentForm.tsx). Null means "use the default boilerplate" — see
+  // customer-portal's src/app/terms/page.tsx and src/app/privacy/page.tsx
+  // — so tenants who never touch this keep seeing exactly what they see
+  // today.
+  termsContent   String?
+  privacyContent String?
   updatedAt      DateTime @updatedAt
 
   // Manifest auto-generation schedule. Time is "HH:mm" in the server's
@@ -693,7 +708,8 @@ model Manifest {
   // (packageCount * PlatformSettings.perPackageRate at generation time —
   // see /dashboard/manifests) — distinct from Package.generatedInvoicePdf,
   // which is the freight forwarder billing its own customer. Null until
-  // generated; regenerating overwrites all five fields together.
+  // generated; regenerating overwrites all six fields together (including
+  // resetting invoicePaidAt back to outstanding).
   invoiceAmount      Float?
   invoicePdf         Bytes?
   invoiceFileName    String?
@@ -702,6 +718,9 @@ model Manifest {
   // null if that setting was unset then — locked in like invoiceAmount,
   // not recomputed if the setting changes later.
   invoiceDueDate     DateTime?
+  // Null = outstanding; set = paid, toggled from /dashboard/manifests —
+  // the identical convention as PortalInvoice.invoicePaidAt.
+  invoicePaidAt      DateTime?
 
   companyId String
   company   Company @relation(fields: [companyId], references: [id])

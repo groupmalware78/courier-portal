@@ -25,12 +25,6 @@ export class InternalAuthError extends Error {
 
 export interface InternalAuthContext {
   companyId: string;
-  // True when the request authenticated against apiKeyPreviousHash (a
-  // grace-period key from a recent PORTAL_MANUAL/AUTOMATIC rotation)
-  // rather than the current apiKeyHash — see GET /v1/tenant/api-key,
-  // which surfaces this to prompt an operator to rotate again before the
-  // grace period ends.
-  usedPreviousKey: boolean;
 }
 
 const COMPANY_AUTH_SELECT = {
@@ -58,19 +52,10 @@ export async function requireInternalAuth(request: NextRequest): Promise<Interna
 
   const hash = hashApiKey(apiKey);
 
-  let company = await prisma.company.findUnique({
+  const company = await prisma.company.findUnique({
     where: { apiKeyHash: hash },
     select: COMPANY_AUTH_SELECT,
   });
-  let usedPreviousKey = false;
-
-  if (!company) {
-    company = await prisma.company.findFirst({
-      where: { apiKeyPreviousHash: hash, apiKeyPreviousExpiresAt: { gt: new Date() } },
-      select: COMPANY_AUTH_SELECT,
-    });
-    usedPreviousKey = company !== null;
-  }
 
   if (!company) {
     throw new InternalAuthError("Invalid API key.", 401);
@@ -97,7 +82,7 @@ export async function requireInternalAuth(request: NextRequest): Promise<Interna
     throw err;
   }
 
-  return { companyId: company.id, usedPreviousKey };
+  return { companyId: company.id };
 }
 
 export function internalAuthErrorResponse(err: unknown) {

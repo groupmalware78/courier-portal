@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn, getSession } from "next-auth/react";
 import { homeRouteForRole } from "@/lib/rbac";
+import { API_KEY_PROBLEM_FRIENDLY_MESSAGE } from "@/lib/apiErrors";
+import { PasswordInput } from "./PasswordInput";
 
 export function LoginForm() {
   const router = useRouter();
@@ -22,7 +24,7 @@ export function LoginForm() {
 
     if (result?.error) {
       setLoading(false);
-      setError("Invalid email or password.");
+      setError(result.code === "api-key-problem" ? API_KEY_PROBLEM_FRIENDLY_MESSAGE : "Invalid email or password.");
       return;
     }
 
@@ -65,12 +67,12 @@ export function LoginForm() {
             Forgot password?
           </Link>
         </div>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          wrapperClassName="w-full"
           className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
           placeholder="••••••••"
         />

@@ -80,6 +80,17 @@ export function canUseFeeCalculator(role: PortalRole | undefined | null): boolea
   return !!role && CAN_USE_FEE_CALCULATOR.includes(role);
 }
 
+// Roles allowed to manually regenerate a package's system invoice PDF
+// from /packages' edit modal — needed when cost/duties/fee are corrected
+// *after* the invoice already went out (a status change alone won't
+// happen again to trigger auto-regeneration). Billing-adjacent staff
+// only — not Driver, who has no billing visibility at all.
+export const CAN_REGENERATE_INVOICE: PortalRole[] = ["ADMIN", "CSR", "LOGGER"];
+
+export function canRegenerateInvoice(role: PortalRole | undefined | null): boolean {
+  return !!role && CAN_REGENERATE_INVOICE.includes(role);
+}
+
 // Jamaica Customs Agency duty/fee line items a Logger can enter once a
 // package's actual customs charges are known — see the comment on
 // Package.declaredValue in ../../api/prisma/schema.prisma (this table is
@@ -125,6 +136,21 @@ export function dutyAmount(percentage: number | null, declaredValue: number | nu
 // PackageEditModal's duty section).
 export const DUTY_MIN_DECLARED_VALUE = 100;
 
+// CSR may progress a package's status, but only to these two courier-
+// facing values — marking it picked up for delivery or delivered — not
+// the warehouse/customs statuses that stay Logger/Admin territory. Every
+// other role with "status" in editablePackageFields (ADMIN/LOGGER/DRIVER)
+// can set any status; this is the one field where CSR's permission is
+// restricted by value, not just by field, so it's checked separately from
+// editablePackageFields (see PackageEditModal and the packages PATCH route).
+export const CSR_ALLOWED_STATUS_VALUES = ["OUT_FOR_DELIVERY", "DELIVERED"] as const;
+
+// null means "no restriction — any status value is allowed for this
+// role's status edits"; a non-null array is the exhaustive allowed set.
+export function allowedStatusValues(role: PortalRole | undefined | null): readonly string[] | null {
+  return role === "CSR" ? CSR_ALLOWED_STATUS_VALUES : null;
+}
+
 export const EDITABLE_PACKAGE_FIELDS = [
   "status",
   "packageType",
@@ -142,16 +168,18 @@ export const EDITABLE_PACKAGE_FIELDS = [
 export type EditablePackageField = (typeof EDITABLE_PACKAGE_FIELDS)[number];
 
 // Which package fields a role may change from /packages' edit modal.
-// Admin: everything, including reassigning the customer. CSR: payment
-// status only — a billing correction, not a package-details edit; they no
-// longer touch status/weight/rate/cost/customer (moved to Logger below).
-// Logger: package details (status/type/weight/pieces/description/
-// declared value/customer), shipping rate/cost (looked up from
-// ShippingRate weight tiers — see PackageEditModal's "Look up rate from
-// shipping rates"), and customs duties — everything that feeds the
-// package's total amount to pay — but not paymentStatus/amountPaid
-// themselves, which stay CSR/Admin territory. Driver: status only.
-// Customer never reaches this — no edit access at all.
+// Admin: everything, including reassigning the customer. CSR: paymentStatus,
+// plus status — though status is further restricted by value (see
+// CSR_ALLOWED_STATUS_VALUES/allowedStatusValues above) to just marking a
+// package out for delivery or delivered; they don't touch weight/rate/
+// cost/customer (that's Logger's territory below). Logger: package
+// details (status/type/weight/pieces/description/declared value/
+// customer), shipping rate/cost (looked up from ShippingRate weight tiers
+// — see PackageEditModal's "Look up rate from shipping rates"), and
+// customs duties — everything that feeds the package's total amount to
+// pay — but not paymentStatus/amountPaid themselves, which stay CSR/Admin
+// territory. Driver: status only (no value restriction). Customer never
+// reaches this — no edit access at all.
 export function editablePackageFields(role: PortalRole | undefined | null): EditablePackageField[] {
   switch (role) {
     case "ADMIN":
@@ -170,7 +198,7 @@ export function editablePackageFields(role: PortalRole | undefined | null): Edit
         ...DUTY_FIELDS,
       ];
     case "CSR":
-      return ["paymentStatus"];
+      return ["paymentStatus", "status"];
     case "LOGGER":
       return [
         "status",

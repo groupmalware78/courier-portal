@@ -7,6 +7,8 @@ import {
   DUTY_FIELD_LABELS,
   DUTY_MIN_DECLARED_VALUE,
   canUseFeeCalculator,
+  canRegenerateInvoice,
+  allowedStatusValues,
   dutyAmount,
   type EditablePackageField,
 } from "@/lib/rbac";
@@ -134,9 +136,21 @@ export function PackageEditModal({
   const [rateLookupMessage, setRateLookupMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generatedInvoiceFileName, setGeneratedInvoiceFileName] = useState(pkg.generatedInvoiceFileName);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [regenerateSuccess, setRegenerateSuccess] = useState(false);
 
   const readOnly = editableFields.length === 0;
   const canEditDuties = DUTY_FIELDS.some((key) => canEdit(key));
+  // CSR can only move a package to OUT_FOR_DELIVERY/DELIVERED — see
+  // allowedStatusValues() in lib/rbac.ts. When the package's current
+  // status isn't one of those (e.g. still AT_CUSTOMS), show it as a
+  // disabled leading option so the select has something to display
+  // instead of appearing blank, without letting it actually be re-picked.
+  const statusRestriction = allowedStatusValues(role);
+  const statusOptions = statusRestriction ? statusRestriction : PACKAGE_STATUSES;
+  const currentStatusInOptions = statusOptions.includes(pkg.status);
   const declaredValueNum = declaredValue.trim() ? Number(declaredValue) : null;
   const dutiesEligible = declaredValueNum != null && declaredValueNum >= DUTY_MIN_DECLARED_VALUE;
   // Each duty field is a percentage of declaredValue, not a flat dollar
@@ -218,7 +232,12 @@ export function PackageEditModal({
     setError(null);
 
     const payload: Record<string, unknown> = {};
-    if (canEdit("status")) payload.status = status;
+    // Only include status if it actually changed — otherwise a CSR saving
+    // an unrelated field (e.g. paymentStatus) while the package sits at a
+    // status they're not allowed to *set* (say, AT_CUSTOMS) would
+    // needlessly resend that same value and get 403'd by the
+    // allowedStatusValues() check server-side.
+    if (canEdit("status") && status !== pkg.status) payload.status = status;
     if (canEdit("packageType")) payload.packageType = packageType;
     if (canEdit("weightLbs")) payload.weightLbs = weight.trim() ? Number(weight) : null;
     if (canEdit("pieces")) payload.pieces = pieces.trim() ? Number(pieces) : undefined;
@@ -250,6 +269,28 @@ export function PackageEditModal({
 
     onUpdated(data.package as EditablePackageRow);
     onClose();
+  }
+
+  // Kept as its own action, separate from the main form's save-and-close,
+  // since staff regenerate an invoice to check/download the fresh PDF
+  // right away rather than leave the modal.
+  async function handleRegenerateInvoice() {
+    setRegenerating(true);
+    setRegenerateError(null);
+    setRegenerateSuccess(false);
+
+    const res = await fetch(`/api/packages/${pkg.id}/regenerate-invoice`, { method: "POST" });
+    const data = await res.json();
+    setRegenerating(false);
+
+    if (!res.ok) {
+      setRegenerateError(data.error ?? "Failed to regenerate invoice.");
+      return;
+    }
+
+    setGeneratedInvoiceFileName(data.package.generatedInvoiceFileName);
+    setRegenerateSuccess(true);
+    onUpdated(data.package as EditablePackageRow);
   }
 
   const inputClass =
@@ -341,9 +382,14 @@ export function PackageEditModal({
                   onChange={(e) => setStatus(e.target.value as PackageStatus)}
                   className={inputClass}
                 >
-                  {PACKAGE_STATUSES.map((s) => (
+                  {!currentStatusInOptions && (
+                    <option value={pkg.status} disabled>
+                      {STATUS_LABELS[pkg.status]} (current)
+                    </option>
+                  )}
+                  {statusOptions.map((s) => (
                     <option key={s} value={s}>
-                      {STATUS_LABELS[s]}
+                      {STATUS_LABELS[s as PackageStatus]}
                     </option>
                   ))}
                 </select>
@@ -566,25 +612,36 @@ export function PackageEditModal({
               dutiesEligible ? (
                 <>
                   <div className="mt-2 grid grid-cols-2 gap-3">
-                    {DUTY_FIELDS.map((key) => (
-                      <div key={key}>
-                        <label htmlFor={`edit-${key}`} className="mb-1 block text-xs text-slate-500">
-                          {DUTY_FIELD_LABELS[key]} (%)
-                        </label>
-                        <input
-                          id={`edit-${key}`}
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={duties[key]}
-                          onChange={(e) =>
-                            setDuties((prev) => ({ ...prev, [key]: e.target.value }))
-                          }
-                          className={inputClass}
-                        />
-                      </div>
-                    ))}
+                    {DUTY_FIELDS.map((key) => {
+                      const fieldAmount = dutyAmount(
+                        duties[key].trim() ? Number(duties[key]) : null,
+                        declaredValueNum
+                      );
+                      return (
+                        <div key={key}>
+                          <label htmlFor={`edit-${key}`} className="mb-1 block text-xs text-slate-500">
+                            {DUTY_FIELD_LABELS[key]} (%)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={`edit-${key}`}
+                              type="number"
+                              inputMode="decimal"
+                              min="0"
+                              step="0.01"
+                              value={duties[key]}
+                              onChange={(e) =>
+                                setDuties((prev) => ({ ...prev, [key]: e.target.value }))
+                              }
+                              className={inputClass}
+                            />
+                            <span className="w-16 shrink-0 text-right text-xs text-slate-500">
+                              {duties[key].trim() ? `$${fieldAmount.toFixed(2)}` : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {totalDuties > 0 && (
                     <p className="mt-2 text-slate-700">
@@ -661,17 +718,35 @@ export function PackageEditModal({
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
               Generated invoice
             </p>
-            {pkg.generatedInvoiceFileName ? (
-              <a
-                href={`/api/packages/${pkg.id}/invoice`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-teal-700 hover:underline"
-              >
-                {pkg.generatedInvoiceFileName}
-              </a>
-            ) : (
-              <p className="mt-1 text-slate-400">Not generated yet.</p>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              {generatedInvoiceFileName ? (
+                <a
+                  href={`/api/packages/${pkg.id}/invoice`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-700 hover:underline"
+                >
+                  {generatedInvoiceFileName}
+                </a>
+              ) : (
+                <p className="text-slate-400">Not generated yet.</p>
+              )}
+              {canRegenerateInvoice(role) && (
+                <button
+                  type="button"
+                  onClick={handleRegenerateInvoice}
+                  disabled={regenerating}
+                  className="shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {regenerating ? "Generating…" : generatedInvoiceFileName ? "Regenerate" : "Generate"}
+                </button>
+              )}
+            </div>
+            {regenerateError && (
+              <p className="mt-1 text-xs text-red-600">{regenerateError}</p>
+            )}
+            {regenerateSuccess && !regenerateError && (
+              <p className="mt-1 text-xs text-emerald-600">Invoice regenerated.</p>
             )}
           </div>
 

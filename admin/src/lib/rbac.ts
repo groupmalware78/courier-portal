@@ -35,6 +35,11 @@ export const CAN_MANAGE_RATES: Role[] = ["ADMIN"];
 // due-date terms (see /dashboard/banking).
 export const CAN_MANAGE_BANKING: Role[] = ["ADMIN"];
 
+// Roles allowed to set each company's portal-lease fee and hosting cost,
+// and generate/mark-paid its monthly portal invoice (see
+// /dashboard/portal-fees).
+export const CAN_MANAGE_PORTAL_FEE: Role[] = ["ADMIN"];
+
 // --- Merged in from the standalone Warehouse app's own rbac.ts, later
 // split from one combined WAREHOUSE_ATTENDANT role into SCANNER/LOGGER/CSR ---
 
@@ -85,6 +90,10 @@ export function canManageRates(role: Role | undefined | null): boolean {
 
 export function canManageBanking(role: Role | undefined | null): boolean {
   return !!role && CAN_MANAGE_BANKING.includes(role);
+}
+
+export function canManagePortalFee(role: Role | undefined | null): boolean {
+  return !!role && CAN_MANAGE_PORTAL_FEE.includes(role);
 }
 
 export function canLogPackages(role: Role | undefined | null): boolean {

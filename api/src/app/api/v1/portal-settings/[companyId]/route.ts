@@ -50,6 +50,8 @@ const settingsPatchSchema = z.object({
   welcomeMessage: z.string().trim().max(1000).optional().nullable(),
   contactEmail: z.string().trim().email().optional().nullable(),
   contactPhone: z.string().trim().max(30).optional().nullable(),
+  termsContent: z.string().trim().max(20000).optional().nullable(),
+  privacyContent: z.string().trim().max(20000).optional().nullable(),
 
   manifestAutoGenerate: z.boolean().optional(),
   manifestTime: z.string().trim().max(5).optional().nullable(),

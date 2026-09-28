@@ -6,6 +6,8 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { PASSWORD_PATTERN, PASSWORD_REQUIREMENTS_HINT } from "@/lib/passwordSchema";
 import { formatPhoneInput } from "@/lib/phoneFormat";
+import { API_KEY_PROBLEM_FRIENDLY_MESSAGE } from "@/lib/apiErrors";
+import { PasswordInput } from "./PasswordInput";
 
 const COUNTRIES = [
   "Jamaica",
@@ -119,7 +121,11 @@ export function SignupForm() {
     setLoading(false);
 
     if (result?.error) {
-      setError("Account created, but sign-in failed — try signing in manually.");
+      setError(
+        result.code === "api-key-problem"
+          ? API_KEY_PROBLEM_FRIENDLY_MESSAGE
+          : "Account created, but sign-in failed — try signing in manually."
+      );
       return;
     }
 
@@ -197,9 +203,8 @@ export function SignupForm() {
         </Field>
 
         <Field label="Password" id="password" required>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             required
             minLength={8}
             pattern={PASSWORD_PATTERN}
@@ -207,18 +212,19 @@ export function SignupForm() {
             value={form.password}
             onChange={(e) => updateField("password", e.target.value)}
             placeholder="At least 8 characters"
+            wrapperClassName="w-full"
             className={inputClass}
           />
           <p className="mt-1 text-xs text-slate-400">{PASSWORD_REQUIREMENTS_HINT}</p>
         </Field>
         <Field label="Confirm password" id="confirmPassword" required>
-          <input
+          <PasswordInput
             id="confirmPassword"
-            type="password"
             required
             minLength={8}
             value={form.confirmPassword}
             onChange={(e) => updateField("confirmPassword", e.target.value)}
+            wrapperClassName="w-full"
             className={inputClass}
           />
         </Field>

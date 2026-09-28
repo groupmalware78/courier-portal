@@ -3,16 +3,8 @@ The following plugins do not support Swift Package Manager for ios:
   - open_filex
 This will become an error in a future version of Flutter. Please contact the plugin maintainers to request Swift Package Manager adoption.
 Running Xcode build...                                          
--[WFIsolatedShortcutRunner init] Taking sandbox extensions for execution
--[WFIsolatedShortcutRunner init]_block_invoke Sandbox extensions acquired
-Indexing for request: <WFToolKitIndexingRequest: 0x104da0320>, changeset: .partial(updatedCount: 1 removedCount: 0 updated: ["com.swiftcargo.customerPortalMobile"], removed: [], provenance: [VoiceShortcutClient.ToolKitIndexingReason.Changeset.Provenance.launchServicesSnapshot(<LaunchServicesSnapshot uuid=2A8ED55B-4423-4CC9-9B7F-75EA1E2FBC05, v=796)> ["com.apple.BacklinkIndicator", "com.apple.WorkoutRemoteViewService", "com.apple.icq", "com.apple.CarPlayWallpaper", "com.apple.PeopleMessageService", "com.apple.PreviewShell", "com.apple.reminders", "com.apple.AXRemoteViewService", "com.apple.ShazamEventsApp", "com.apple.siri.parsec.HashtagImagesApp", "com.apple.SleepLockScreen", "com.apple.MobileSMS", "com.apple.MediaRemoteAppIntentsExtension", "com.apple.AppStoreSettingsAppIntents", "com.apple.NotificationsSettingsExtension", "com.apple.mobilemail.MailSettingsIntentsExtension", "com.apple.shortcuts", "com.apple.RemoteiCloudQuotaUI", "com.apple.EventViewService", "com.apple.DocumentManager.DockFolderViewService", "com.apple.Health<…>, priority: <decode: missing data>
-Indexed: 0
-Errored: 0
-Skipped: [:]
-Finished in 0.408938s
--[WFIsolatedShortcutRunner unaliveProcess] Releasing sandbox extensions
-Xcode build done.                                            7.4s
-Syncing files to device iPhone 17 Pro...                           168ms
+Xcode build done.                                           10.6s
+Syncing files to device iPhone 17 Pro...                           617ms
 
 Flutter run key commands.
 r Hot reload. 🔥🔥🔥
@@ -22,6 +14,13 @@ d Detach (terminate "flutter run" but leave application running).
 c Clear the screen
 q Quit (terminate the application on the device).
 
-A Dart VM Service on iPhone 17 Pro is available at: http://127.0.0.1:63346/V6VWMqH3-aU=/
-The Flutter DevTools debugger and profiler on iPhone 17 Pro is available at: http://127.0.0.1:63346/V6VWMqH3-aU=/devtools/?uri=ws://127.0.0.1:63346/V6VWMqH3-aU=/ws
-Lost connection to device.
+A Dart VM Service on iPhone 17 Pro is available at: http://127.0.0.1:63222/JbTae1vPEAA=/
+The Flutter DevTools debugger and profiler on iPhone 17 Pro is available at: http://127.0.0.1:63222/JbTae1vPEAA=/devtools/?uri=ws://127.0.0.1:63222/JbTae1vPEAA=/ws
+-[WFIsolatedShortcutRunner init] Taking sandbox extensions for execution
+-[WFIsolatedShortcutRunner init]_block_invoke Sandbox extensions acquired
+Indexing for request: <WFToolKitIndexingRequest: 0x106dc8320>, changeset: .partial(updatedCount: 1 removedCount: 0 updated: ["com.swiftcargo.customerPortalMobile"], removed: [], provenance: [VoiceShortcutClient.ToolKitIndexingReason.Changeset.Provenance.launchServicesSnapshot(<LaunchServicesSnapshot uuid=2A8ED55B-4423-4CC9-9B7F-75EA1E2FBC05, v=860)> ["com.apple.ScreenshotServicesService", "com.apple.ShazamEventsApp", "com.apple.compass.CompassSettingsAppIntents", "com.apple.CompanionSetup", "com.apple.DocumentManager.DockFolderViewService", "com.apple.AppSSOUIService", "com.apple.chrono.WidgetRenderer-Activities", "com.apple.FCAuthenticationUI", "com.apple.findmy.FindMyIntents", "com.apple.SensitiveContentAnalysis.SensitiveContentAnalysisConfigurationExtension", "com.apple.CarPlaySetupApp", "com.apple.Posters.WeatherPosterApp", "com.apple.Maps.MapsSettingsAppIntents", "com.apple.ActivityProgress.ActivityProgressUI", "com.apple.TVSetupUIService", "com.apple.AXRemoteViewService", "com.apple.TDGSharingViewService", "com.apple.Pref<…>, priority: <decode: missing data>
+Indexed: 0
+Errored: 0
+Skipped: [:]
+Finished in 0.418695s
+-[WFIsolatedShortcutRunner unaliveProcess] Releasing sandbox extensions

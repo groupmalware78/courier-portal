@@ -68,6 +68,9 @@ export async function POST(
       invoiceFileName: fileName,
       invoiceGeneratedAt: generatedAt,
       invoiceDueDate: dueDate,
+      // The amount may have changed since it was last marked paid —
+      // regenerating always resets to outstanding.
+      invoicePaidAt: null,
     },
     select: {
       id: true,
@@ -77,6 +80,7 @@ export async function POST(
       invoiceAmount: true,
       invoiceGeneratedAt: true,
       invoiceDueDate: true,
+      invoicePaidAt: true,
       company: { select: { id: true, name: true, code: true } },
     },
   });

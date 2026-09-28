@@ -1,5 +1,4 @@
-import { ApiError } from "./apiErrors";
-import { readRuntimeApiKey } from "./apiKeyStore";
+import { ApiError, friendlyApiKeyErrorMessage } from "./apiErrors";
 import type {
   AuthorizedPickupPerson,
   Customer,
@@ -60,16 +59,6 @@ export class ApiClient {
     this.apiKey = config.apiKey;
   }
 
-  // Called right after a successful rotation (manual, from
-  // src/app/api/admin/api-key/rotate/route.ts, or the automatic-rotation
-  // webhook receiver) so this deployment's live requests use the new key
-  // immediately, without a process restart. The runtime-file write that
-  // makes the new key durable across restarts happens alongside this call,
-  // not inside it — see apiKeyStore.ts.
-  setApiKey(newKey: string): void {
-    this.apiKey = newKey;
-  }
-
   private url(path: string, query?: Record<string, string | number | boolean | undefined>) {
     const u = new URL(`${this.baseUrl}${path}`);
     if (query) {
@@ -93,7 +82,7 @@ export class ApiClient {
     }
     if (!res.ok) {
       const message = (body as { error?: string } | null)?.error ?? `Request failed (${res.status}).`;
-      throw new ApiError(message, res.status);
+      throw new ApiError(friendlyApiKeyErrorMessage(message), res.status);
     }
     return body as T;
   }
@@ -108,7 +97,7 @@ export class ApiClient {
       } catch {
         // ignore — use the generic message
       }
-      throw new ApiError(message, res.status);
+      throw new ApiError(friendlyApiKeyErrorMessage(message), res.status);
     }
     const buffer = await res.arrayBuffer();
     const disposition = res.headers.get("content-disposition");
@@ -149,22 +138,6 @@ export class ApiClient {
         method: "POST",
         body: JSON.stringify(message),
       }),
-    apiKeyStatus: () =>
-      this.json<{
-        apiKeyPrefix: string;
-        apiKeyScope: "FULL" | "READ_ONLY";
-        rotatedAt: string;
-        rotationDays: number;
-        usedPreviousKey: boolean;
-        gracePeriodEndsAt: string | null;
-      }>("/api/v1/tenant/api-key"),
-    rotateApiKey: () =>
-      this.json<{
-        apiKey: string;
-        apiKeyPrefix: string;
-        rotatedAt: string;
-        gracePeriodEndsAt: string | null;
-      }>("/api/v1/tenant/api-key/rotate", { method: "POST" }),
   };
 
   auth = {
@@ -234,6 +207,8 @@ export class ApiClient {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    regenerateInvoice: (id: string) =>
+      this.json<{ package: Package }>(`/api/v1/packages/${id}/regenerate-invoice`, { method: "POST" }),
     createPreAlert: (fields: {
       trackingNumber: string;
       pieces: string;
@@ -542,13 +517,9 @@ function createApiClient() {
   if (!baseUrl) {
     throw new Error("ADMIN_API_URL is not set.");
   }
-  // A rotated key (manual or automatic) is persisted to
-  // data/runtime-config.json, not back to .env — see apiKeyStore.ts. Fall
-  // back to TENANT_API_KEY only on first boot, before any rotation has
-  // happened yet.
-  const apiKey = readRuntimeApiKey() ?? process.env.TENANT_API_KEY;
+  const apiKey = process.env.TENANT_API_KEY;
   if (!apiKey) {
-    throw new Error("TENANT_API_KEY is not set and no runtime key file exists.");
+    throw new Error("TENANT_API_KEY is not set.");
   }
   return new ApiClient({ baseUrl, apiKey });
 }

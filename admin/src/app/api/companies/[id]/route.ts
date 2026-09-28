@@ -58,9 +58,8 @@ export async function PATCH(
         trn: trn || null,
         active: active ?? true,
       },
-      // Explicit select — apiKeyHash/apiKeyPreviousHash/apiKeyWebhookSecret
-      // must never reach the client (see the identical select on the
-      // companies dashboard page's initial fetch).
+      // Explicit select — apiKeyHash must never reach the client (see the
+      // identical select on the companies dashboard page's initial fetch).
       select: {
         id: true,
         name: true,
@@ -68,8 +67,6 @@ export async function PATCH(
         apiKeyPrefix: true,
         apiKeyScope: true,
         apiKeyRotatedAt: true,
-        apiKeyRotationDays: true,
-        apiKeyWebhookUrl: true,
         requestsPerMinute: true,
         contactName: true,
         contactEmail: true,

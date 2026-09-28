@@ -100,8 +100,6 @@ export async function POST(request: NextRequest) {
         apiKeyPrefix: true,
         apiKeyScope: true,
         apiKeyRotatedAt: true,
-        apiKeyRotationDays: true,
-        apiKeyWebhookUrl: true,
         requestsPerMinute: true,
         contactName: true,
         contactEmail: true,

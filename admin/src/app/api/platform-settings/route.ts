@@ -2,21 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageBanking, canManageRates } from "@/lib/rbac";
+import { canManageBanking, canManageRates, canManagePortalFee } from "@/lib/rbac";
 
 const PLATFORM_SETTINGS_ID = "platform";
 
-// Singleton settings, shared by two otherwise-unrelated screens: the
-// global per-package rate (/dashboard/rates, canManageRates) and the
-// invoice due-date term (/dashboard/banking, canManageBanking) — banking
-// info itself moved to its own /api/bank-accounts, since multiple are
-// allowed (see PlatformBankAccount in schema.prisma). Not company-scoped,
-// so no [id] param and no audit log entry (AuditLog is entity-scoped to
-// PACKAGE/COMPANY/CUSTOMER/USER/MANIFEST; this operator-only settings
-// screen doesn't fit any of those and isn't user data).
+// Singleton settings, shared by three otherwise-unrelated screens: the
+// global per-package rate (/dashboard/rates, canManageRates), the invoice
+// due-date term (/dashboard/banking, canManageBanking), and the flat
+// portal-lease fee applied to every company alike (/dashboard/portal-fees,
+// canManagePortalFee) — banking info itself moved to its own
+// /api/bank-accounts, since multiple are allowed (see PlatformBankAccount
+// in schema.prisma). Not company-scoped, so no [id] param and no audit log
+// entry (AuditLog is entity-scoped to PACKAGE/COMPANY/CUSTOMER/USER/
+// MANIFEST/PORTAL_INVOICE; this operator-only settings screen doesn't fit
+// any of those and isn't user data).
 export async function GET() {
   const session = await auth();
-  if (!session?.user || !(canManageBanking(session.user.role) || canManageRates(session.user.role))) {
+  if (
+    !session?.user ||
+    !(canManageBanking(session.user.role) || canManageRates(session.user.role) || canManagePortalFee(session.user.role))
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -28,6 +33,7 @@ const patchSchema = z.object({
   perPackageRate: z.coerce.number().min(0, "Rate must be 0 or more").optional(),
   // Leave unset/null for no due date on future invoices.
   paymentDueDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
+  portalFeeMonthly: z.coerce.number().min(0, "Fee must be 0 or more").optional(),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -50,7 +56,14 @@ export async function PATCH(request: NextRequest) {
   if (parsed.data.paymentDueDays !== undefined && !canManageBanking(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (parsed.data.perPackageRate === undefined && parsed.data.paymentDueDays === undefined) {
+  if (parsed.data.portalFeeMonthly !== undefined && !canManagePortalFee(session.user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (
+    parsed.data.perPackageRate === undefined &&
+    parsed.data.paymentDueDays === undefined &&
+    parsed.data.portalFeeMonthly === undefined
+  ) {
     return NextResponse.json({ error: "No fields to update." }, { status: 400 });
   }
 

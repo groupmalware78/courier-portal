@@ -16,8 +16,6 @@ interface CompanyRow {
   apiKeyPrefix: string;
   apiKeyScope: "FULL" | "READ_ONLY";
   apiKeyRotatedAt: string;
-  apiKeyRotationDays: number;
-  apiKeyWebhookUrl: string | null;
   requestsPerMinute: number;
   contactName: string | null;
   contactEmail: string | null;
@@ -211,7 +209,7 @@ export function CompaniesView({ initialCompanies }: { initialCompanies: CompanyR
 
   async function handleAccessChange(
     company: CompanyRow,
-    patch: Partial<Pick<CompanyRow, "apiKeyScope" | "requestsPerMinute" | "apiKeyRotationDays">>
+    patch: Partial<Pick<CompanyRow, "apiKeyScope" | "requestsPerMinute">>
   ) {
     setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, ...patch } : c)));
     setSavingAccessId(company.id);
@@ -222,8 +220,6 @@ export function CompaniesView({ initialCompanies }: { initialCompanies: CompanyR
         body: JSON.stringify({
           apiKeyScope: patch.apiKeyScope ?? company.apiKeyScope,
           requestsPerMinute: patch.requestsPerMinute ?? company.requestsPerMinute,
-          apiKeyRotationDays: patch.apiKeyRotationDays ?? company.apiKeyRotationDays,
-          apiKeyWebhookUrl: company.apiKeyWebhookUrl,
         }),
       });
       if (res.ok) {
@@ -416,7 +412,6 @@ export function CompaniesView({ initialCompanies }: { initialCompanies: CompanyR
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">API Key</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Scope</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rate limit /min</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Rotate every</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Phone</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Active</th>
@@ -472,28 +467,6 @@ export function CompaniesView({ initialCompanies }: { initialCompanies: CompanyR
                       onBlur={(e) => handleAccessChange(c, { requestsPerMinute: Number(e.target.value) })}
                       className="w-20 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-violet-500 focus:outline-none"
                     />
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={0}
-                        value={c.apiKeyRotationDays}
-                        disabled={savingAccessId === c.id}
-                        onChange={(e) =>
-                          setCompanies((prev) =>
-                            prev.map((row) =>
-                              row.id === c.id ? { ...row, apiKeyRotationDays: Number(e.target.value) } : row
-                            )
-                          )
-                        }
-                        onBlur={(e) => handleAccessChange(c, { apiKeyRotationDays: Number(e.target.value) })}
-                        className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-violet-500 focus:outline-none"
-                      />
-                      <span className="text-xs text-slate-400">
-                        {c.apiKeyRotationDays === 0 ? "(off)" : "days"}
-                      </span>
-                    </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">
                     {c.contactName || c.contactEmail ? (

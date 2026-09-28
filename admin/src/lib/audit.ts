@@ -7,8 +7,6 @@ import { prisma } from "./prisma";
 const REDACTED_FIELDS = new Set([
   "passwordHash",
   "apiKeyHash",
-  "apiKeyPreviousHash",
-  "apiKeyWebhookSecret",
 ]);
 
 function redact(record: Record<string, unknown> | null | undefined): Prisma.InputJsonValue | null {

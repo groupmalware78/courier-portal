@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         triggeredBy: true,
         invoiceAmount: true,
         invoiceGeneratedAt: true,
+        invoicePaidAt: true,
         company: { select: { id: true, name: true, code: true } },
       },
     }),

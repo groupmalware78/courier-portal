@@ -123,14 +123,6 @@ const STAFF_ICON = (
   </svg>
 );
 
-const API_KEY_ICON = (
-  <svg {...ICON_PROPS}>
-    <circle cx="7.5" cy="15.5" r="5.5" />
-    <path d="m21 2-9.6 9.6" />
-    <path d="m15.5 7.5 3 3L22 7l-3-3" />
-  </svg>
-);
-
 const REPORTS_ICON = (
   <svg {...ICON_PROPS}>
     <path d="M3 3v18h18" />
@@ -160,78 +152,117 @@ export function PortalNav({
 }) {
   const pathname = usePathname();
 
-  const links = [
-    { href: "/my-shipments", label: "My Shipments", icon: SHIPMENTS_ICON, show: user.role === "CUSTOMER" },
-    { href: "/packages", label: "Packages", icon: SHIPMENTS_ICON, show: canViewPackages(user.role) },
-    { href: "/customers", label: "Customers", icon: CUSTOMERS_ICON, show: canViewCustomers(user.role) },
-    { href: "/reports", label: "Reports", icon: REPORTS_ICON, show: canViewReports(user.role) },
-    { href: "/driver", label: "Deliveries", icon: DELIVERY_ICON, show: canViewDeliveriesPage(user.role) },
+  // Grouped by what each section lets you DO, not by who's gated for it —
+  // e.g. Customers (external tenant customers) and Staff (internal CSR/
+  // Driver/Logger accounts) both land under "People" since both are
+  // "who's in the system" lookups, while Manifests sits with Packages/
+  // Deliveries under "Operations" since generating one is a day-to-day
+  // shipping action, not a settings change.
+  const groups = [
     {
-      href: "/fee-calculator",
-      label: "Fee Calculator",
-      icon: FEE_CALCULATOR_ICON,
-      show: canUseFeeCalculator(user.role),
+      label: "Operations",
+      links: [
+        { href: "/packages", label: "Packages", icon: SHIPMENTS_ICON, show: canViewPackages(user.role) },
+        { href: "/driver", label: "Deliveries", icon: DELIVERY_ICON, show: canViewDeliveriesPage(user.role) },
+        {
+          href: "/fee-calculator",
+          label: "Fee Calculator",
+          icon: FEE_CALCULATOR_ICON,
+          show: canUseFeeCalculator(user.role),
+        },
+        { href: "/admin/manifests", label: "Manifests", icon: MANIFESTS_ICON, show: canManagePortal(user.role) },
+      ],
     },
-    { href: "/admin/rates", label: "Rates", icon: RATES_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/fees", label: "Fees", icon: FEES_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/locations", label: "Locations", icon: LOCATIONS_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/manifests", label: "Manifests", icon: MANIFESTS_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/faqs", label: "FAQ", icon: FAQ_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/settings", label: "Settings", icon: SETTINGS_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/api-key", label: "API Key", icon: API_KEY_ICON, show: canManagePortal(user.role) },
-    { href: "/admin/users", label: "Staff", icon: STAFF_ICON, show: canManagePortal(user.role) },
-    { href: "/profile", label: "Account Profile", icon: PROFILE_ICON, show: true },
-  ].filter((l) => l.show);
+    {
+      label: "People",
+      links: [
+        { href: "/customers", label: "Customers", icon: CUSTOMERS_ICON, show: canViewCustomers(user.role) },
+        { href: "/admin/users", label: "Staff", icon: STAFF_ICON, show: canManagePortal(user.role) },
+      ],
+    },
+    {
+      label: "Insights",
+      links: [{ href: "/reports", label: "Reports", icon: REPORTS_ICON, show: canViewReports(user.role) }],
+    },
+    {
+      label: "Configuration",
+      links: [
+        { href: "/admin/rates", label: "Rates", icon: RATES_ICON, show: canManagePortal(user.role) },
+        { href: "/admin/fees", label: "Fees", icon: FEES_ICON, show: canManagePortal(user.role) },
+        { href: "/admin/locations", label: "Locations", icon: LOCATIONS_ICON, show: canManagePortal(user.role) },
+        { href: "/admin/faqs", label: "FAQ", icon: FAQ_ICON, show: canManagePortal(user.role) },
+        { href: "/admin/settings", label: "Settings", icon: SETTINGS_ICON, show: canManagePortal(user.role) },
+      ],
+    },
+    {
+      label: "Account",
+      links: [
+        { href: "/my-shipments", label: "My Shipments", icon: SHIPMENTS_ICON, show: user.role === "CUSTOMER" },
+        { href: "/profile", label: "Account Profile", icon: PROFILE_ICON, show: true },
+      ],
+    },
+  ]
+    .map((group) => ({ ...group, links: group.links.filter((l) => l.show) }))
+    .filter((group) => group.links.length > 0);
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white print:hidden">
+    <aside className="flex h-screen w-60 shrink-0 flex-col bg-gradient-to-b from-teal-950 via-teal-900 to-cyan-950 shadow-xl print:hidden">
       <Link
         href="/"
-        className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-4 text-sm font-bold tracking-tight text-slate-900"
+        className="flex items-center gap-2.5 border-b border-white/10 px-4 py-4 text-sm font-bold tracking-tight text-white"
       >
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="" className="h-7 w-7 rounded-lg object-contain shadow-sm" />
+          <img src={logoUrl} alt="" className="h-7 w-7 rounded-lg bg-white object-contain shadow-md shadow-black/20" />
         ) : (
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-cyan-500 text-base shadow-md shadow-teal-500/30">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-base shadow-md shadow-black/20">
             {logoEmoji}
           </span>
         )}
         <span className="truncate">{companyName}</span>
       </Link>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {links.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={clsx(
-              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition",
-              pathname.startsWith(link.href)
-                ? "bg-gradient-to-r from-teal-600 to-cyan-600 text-white shadow-md shadow-teal-600/30"
-                : "text-slate-600 hover:bg-teal-50 hover:text-teal-700"
-            )}
-          >
-            {link.icon}
-            {link.label}
-          </Link>
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4">
+        {groups.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-teal-300/70">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={clsx(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition",
+                    pathname.startsWith(link.href)
+                      ? "bg-white text-teal-700 shadow-lg shadow-black/20 font-semibold"
+                      : "text-teal-100 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  {link.icon}
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
-      <div className="border-t border-slate-200 px-4 py-4">
+      <div className="border-t border-white/10 px-4 py-4">
         <Link
           href="/profile"
           className={clsx(
-            "block rounded-md px-2 py-1.5 -mx-2 leading-tight transition hover:bg-slate-100",
-            pathname === "/profile" && "bg-slate-100"
+            "block rounded-md px-2 py-1.5 -mx-2 leading-tight transition hover:bg-white/10",
+            pathname === "/profile" && "bg-white/10"
           )}
         >
-          <p className="truncate text-sm font-medium text-slate-900">{user.name}</p>
-          <p className="text-xs text-slate-500">{ROLE_LABELS[user.role]}</p>
+          <p className="truncate text-sm font-medium text-white">{user.name}</p>
+          <p className="text-xs text-teal-200">{ROLE_LABELS[user.role]}</p>
         </Link>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="mt-3 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+          className="mt-3 w-full rounded-md border border-white/20 px-3 py-1.5 text-sm font-medium text-teal-100 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
         >
           Sign out
         </button>

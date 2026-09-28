@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PasswordInput } from "./PasswordInput";
 
 export interface EmailProviderFields {
   emailProvider: "RESEND" | "SMTP" | "PLATFORM_DEFAULT";
@@ -109,12 +110,12 @@ export function EmailProviderSettingsForm({
           <label htmlFor="resendApiKey" className="mb-1 block text-sm font-medium text-slate-700">
             Resend API key
           </label>
-          <input
+          <PasswordInput
             id="resendApiKey"
-            type="password"
             placeholder={hasSecretConfigured ? "•••• configured — enter a new key to replace" : "re_..."}
             value={value.resendApiKey}
             onChange={(e) => updateField("resendApiKey", e.target.value)}
+            wrapperClassName="w-full"
             className={inputClass}
           />
         </div>
@@ -164,12 +165,12 @@ export function EmailProviderSettingsForm({
             <label htmlFor="smtpPassword" className="mb-1 block text-sm font-medium text-slate-700">
               Password
             </label>
-            <input
+            <PasswordInput
               id="smtpPassword"
-              type="password"
               placeholder={hasSecretConfigured ? "•••• configured — enter a new password to replace" : ""}
               value={value.smtpPassword}
               onChange={(e) => updateField("smtpPassword", e.target.value)}
+              wrapperClassName="w-full"
               className={inputClass}
             />
           </div>
