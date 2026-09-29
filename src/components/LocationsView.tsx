@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { formatPhoneInput, formatPhoneDisplay } from "@/lib/phoneFormat";
 
 interface LocationRow {
   id: string;
@@ -48,7 +49,7 @@ export function LocationsView({ initialLocations }: { initialLocations: Location
     setForm({
       name: location.name,
       address: location.address,
-      contactNumber: location.contactNumber,
+      contactNumber: formatPhoneInput(location.contactNumber),
       hoursMonFri: location.hoursMonFri,
       hoursSat: location.hoursSat,
       active: location.active,
@@ -168,7 +169,7 @@ export function LocationsView({ initialLocations }: { initialLocations: Location
             required
             placeholder="Contact number"
             value={form.contactNumber}
-            onChange={(e) => updateField("contactNumber", e.target.value)}
+            onChange={(e) => updateField("contactNumber", formatPhoneInput(e.target.value))}
             className={inputClass}
           />
           <input
@@ -243,7 +244,7 @@ export function LocationsView({ initialLocations }: { initialLocations: Location
                 <tr key={location.id}>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-900">{location.name}</td>
                   <td className="px-4 py-3 text-sm text-slate-600">{location.address}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{location.contactNumber}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">{formatPhoneDisplay(location.contactNumber)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">
                     {location.hoursMonFri} / {location.hoursSat}
                   </td>
