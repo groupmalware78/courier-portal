@@ -1,110 +1,165 @@
-Five independent apps sharing one Postgres database. No monorepo tooling —
-each app has its own `package.json`, `node_modules`, and lock file, and is
-run and deployed separately. Two of them (`admin/`, `api/`) connect to
-Postgres directly, each with its own Prisma schema against the same
-database; the rest — the three `customer-portal` instances and the
-Flutter mobile app — have no database connection at all and talk to `api/`
-over plain REST instead.
+A self-service CMS + customer portal for a freight forwarder. Like
+WordPress, **one deployment = one freight forwarder**: install this app
+once per company (its own folder, its own port/URL), set that company's
+`TENANT_API_KEY` in `.env` (see "Registering a new freight forwarder"
+below), and its admin can customize branding without touching code.
 
-## Projects
+Many such deployments — one per company — can safely share the exact
+same Postgres database, because every table this app owns is scoped by
+`companyId` (see "Data ownership" below). Copying this folder, giving the
+copy its own port and its own `TENANT_API_KEY`, is the normal way to run
+a second company's portal locally or in production; `../api` is the
+single hub every deployment reads and writes its shared data through.
 
-- **[api/](api/)** — the one REST API of record for external/client
-  applications: every `customer-portal` instance and the mobile app call
-  it, in any language, authenticated by an `x-api-key` header checked
-  against each company's own key (`src/app/api/v1/**`), plus a bearer-JWT
-  layer on top for the mobile app's per-user session
-  (`src/app/api/v1/mobile/**`). Publishes its own OpenAPI/Swagger docs at
-  `/docs` — that's the contract, not this README. **`v1/**` must never be
-  reachable from the public internet** — access to it is equivalent to
-  full data access for whichever company's key is presented. Owns its own
-  mirrored Prisma schema (never migrates — see "Adding a schema change"
-  below). Runs on port 3010.
+It has **no database connection of its own** — every read and write,
+including to the data it conceptually "owns" (branding, rates, driver
+assignments, and so on), goes through `../api`'s REST endpoints via a
+small hand-written `fetch()` wrapper (`src/lib/apiClient.ts` — plain
+HTTP, no shared client library between apps). `../admin` owns the
+database schema; `../api` is the sole process every client app, including
+this one, actually calls; this app is otherwise fully independent, with
+its own `package.json` and `node_modules`.
 
-- **[admin/](admin/)** — Service-Provider: onboards freight-forwarder
-  companies and issues their API keys (`/dashboard/companies`), staff user
-  management, an audit log, cross-company reports, and (merged in from a
-  formerly-standalone Warehouse app) logging/editing packages received at
-  the warehouse. Companies/Users/Audit/Reports/Manifests/Rates/Banking are
-  `ADMIN`-only; Packages is open to `ADMIN`, `SCANNER`, `LOGGER`, and `CSR`
-  alike, each with different capabilities there (see `src/lib/rbac.ts`).
-  **Owns the database schema and all migrations** — every table in the
-  system, including the ones only `customer-portal`/`api` use. Runs on
-  port 3000.
+## Roles
 
-- **[customer-portal/](customer-portal/)**, **[customer-portal-bhf/](customer-portal-bhf/)**,
-  **[customer-portal-ids/](customer-portal-ids/)** — a self-service CMS +
-  customer portal, deployed once per freight forwarder (like a WordPress
-  install per site — see its README). These three are the same app, one
-  physical copy per company (Swift Cargo Express, Blue Horizon Freight,
-  Island Direct Shipping), distinguished by each instance's own
-  `TENANT_API_KEY` in `.env`. Role-based (Admin/CSR/Customer/Driver), with
-  a public no-login tracking page too. **Has no database connection of its
-  own** — every read and write goes through `api/`'s REST endpoints via a
-  small hand-written `fetch()` wrapper (`src/lib/apiClient.ts` — no shared
-  client library; each instance has its own copy). Run on ports
-  3001/3002/3003 respectively.
+| Role | Access |
+| --- | --- |
+| **Admin** | Customize this instance's branding/CMS content (`/admin/settings`); manage weight-based shipping rates (`/admin/rates`); manage branch locations (`/admin/locations`); manage the public FAQ accordion (`/admin/faqs`); schedule and review manifests (`/admin/manifests`, schedule in `/admin/settings`); manage CSR & Driver accounts (`/admin/users`); browse every package for this tenant (`/packages`); everything CSR and Driver can do. |
+| **CSR** | Look up any of this tenant's shipments by tracking number or customer email (`/csr`); browse every package for this tenant (`/packages`), for support purposes. |
+| **Customer** | Self-registers (`/signup`); sees their own shipments (`/my-shipments`), auto-matched by their account email against the `Customer` record in the shared database. |
+| **Driver** | Sees shipments assigned to them for delivery (`/driver`) and advances their status (assigned → out for delivery → delivered/failed); `/packages` shows the same assigned packages in a plain read-only list. |
 
-- **[customer-portal-mobile/](customer-portal-mobile/)** — Flutter app (iOS
-  + Android) for the Driver and Customer roles only, talking to `api/`'s
-  `/v1/mobile/**` routes directly (a bearer-JWT API, obtained by a login
-  call carrying this build's own `x-api-key`) — see its README.
+Anyone, logged in or not, can look up a single shipment by tracking
+number on the public homepage (`/`) — the original public tracking
+feature, now with this tenant's branding — and see the shipping rates
+table with a live weight-based cost calculator, both driven entirely by
+what the admin has configured at `/admin/rates`.
 
-## Running everything locally
+The homepage hero is full viewport height, with either the default
+gradient or a background image the admin uploads at `/admin/settings`
+(JPEG/PNG/WebP/GIF, up to 8MB — stored as bytes on a `PortalSettings` row
+in the shared database and served back through this app's own
+`/api/branding/hero-image` proxy route; replacing or removing an image
+overwrites/clears those bytes, there's no file on disk anywhere).
 
-No shared install step — each app below needs its own `npm install` (and,
-for `admin`/`api`, `npm run db:generate`) on a fresh clone or after
-pulling `package.json` changes:
+## Data ownership
 
-```bash
-for d in admin api customer-portal customer-portal-bhf customer-portal-ids; do
-  (cd "$d" && npm install)
-done
-```
+`../admin` owns every table's schema — there is no schema file, no
+migration, and no direct database access anywhere in this app. What used
+to be a split between "tables this app owns" and "tables it reads
+read-only" is now just a split in which parts of `../api`'s REST surface
+(`src/app/api/v1/**` there, called here through `src/lib/apiClient.ts`)
+each feature calls:
 
-`admin` and `api` connect to Postgres — start it once (`docker compose up
--d` from `admin/`, or your own local Postgres) and run `npm run
-db:generate` in each of those two. The three `customer-portal` instances
-instead need `ADMIN_API_URL` (pointing at `api/`) and their own
-`TENANT_API_KEY` in `.env` — see each app's README.
+1. **Data `../admin`'s Packages UI also manages** — `Package`, `Company`,
+   `Customer`. Generating a manifest bulk-updates `Package.status` from
+   `RECEIVED` to `SHIPPED` on the packages it captures (server-side, inside
+   `../api`'s own `generateManifest()`); `/packages` has a role-scoped edit
+   modal (Admin: every field, including reassigning the customer; CSR:
+   status/weight/pieces/customer/rate/cost; Driver: status only) — see
+   `editablePackageFields` in `lib/rbac.ts` — and `/signup` has `../api`
+   create a matching `Customer` row (scoped to this tenant) if none already
+   exists for that email, so a self-registered customer immediately shows
+   up in admin's Packages/CSR customer directory and can be assigned
+   packages.
+2. **Data only this app's UI manages** — portal user accounts (auth, all 4
+   roles; also the target of one write going the *other* direction — see
+   "Registering a new freight forwarder" below, where `../admin` creates
+   the initial ADMIN account directly), portal settings (the CMS branding,
+   one row per company — also holds the manifest auto-generation
+   schedule), shipping rates (admin-configurable weight-based pricing
+   tiers), locations (admin-configurable branch locations — name, address,
+   contact number, Mon–Fri/Sat hours; active ones populate the "Preferred
+   store location" dropdown on the signup form), manifests (a point-in-time
+   snapshot of every `RECEIVED` package at generation time, plus how it was
+   triggered), FAQs (admin-managed Q&A pairs — active ones render as an
+   accordion on the public homepage), and delivery assignments (driver
+   assignments — separate from `Package.status`, which otherwise stays
+   admin-Packages-owned).
 
-```bash
-./run-all.sh   # starts admin, api, all 3 customer-portal instances, and
-               # the mobile app on whatever iOS/Android targets are
-               # available. Safe to re-run — anything already running is
-               # left alone.
-./stop-all.sh  # stops everything run-all.sh started
-```
+Every one of those `../api` routes scopes its query by companyId,
+resolved from the `x-api-key` header each call carries — this is what
+makes it safe for many single-tenant deployments to share one physical
+database and one `../api` process: each deployment's `TENANT_API_KEY`
+(used as both the tenant identifier and the API credential — see
+`getTenantCompanyId()` in `lib/tenant.ts` and `../api/src/lib/internalAuth.ts`)
+only ever resolves to that one company, never another deployment's.
 
-Logs land in `logs/<app>.log`. To run just one or two apps by hand instead:
+Manifests can be generated manually (`/admin/manifests` → Generate now)
+or on a schedule configured in `/admin/settings` (a time and a subset of
+weekdays, in the server's local time) — an in-process scheduler started
+once per server via `src/instrumentation.ts` checks every 30s and fires
+at most once per matching minute, calling `../api`'s
+`v1/manifests/generate` endpoint. Either way, generating a manifest
+snapshots every currently-`RECEIVED` package for this tenant and advances
+them to `SHIPPED`; the snapshot is kept even if the underlying packages
+later change status again, so a manifest always reflects what was
+actually manifested at the time.
 
-```bash
-cd api && npm run dev               # http://localhost:3010
-cd customer-portal && npm run dev   # http://localhost:3001
-```
+If you need a schema change (a new field on any of the above), it goes
+through `../admin/prisma/schema.prisma` and its migrations, then a
+matching route/type update in `../api` — see the root README's "Adding a
+schema change" — never anything in this app.
 
-Since `customer-portal` has no database of its own, `api/` needs to be up
-and reachable at its `ADMIN_API_URL` for `customer-portal` to do anything
-useful (including `next build`'s static prerendering, which calls `api/`
-for branding/settings on pages like `/` and `/contact`).
+## Setup
 
-## Adding a schema change
+1. Install dependencies — this app has its own `package.json`, unrelated
+   to any other app in the repo:
 
-- `admin/` is the sole schema owner — **every** table, including the ones
-  only `api`/`customer-portal` read or write. A schema change always goes
-  through `admin/prisma/schema.prisma` and its migrations, following the
-  process in `admin/README.md`.
-- `api/prisma/schema.prisma` mirrors the same physical tables — copy the
-  change there too, but **never** run `prisma migrate`/`db push` from it;
-  it only ever needs `npx prisma generate` against the already-migrated
-  database.
-- If the change adds or changes a field `customer-portal` or the mobile
-  app needs, add/update the corresponding route in `api/src/app/api/v1/**`
-  to expose it, then update `customer-portal/src/lib/apiTypes.ts` and
-  `apiClient.ts` (and the mobile app's own Dart models/`api_client.dart`)
-  to match — these are hand-written to mirror `api/`'s routes, not
-  generated, so every side needs the edit. `api/`'s own `/docs` (Swagger)
-  is the source of truth for what the contract actually is.
-- Any code change in `customer-portal/` still needs to be copied into
-  `customer-portal-bhf/` and `customer-portal-ids/` by hand — they're
-  separate physical copies, not symlinks.
-# slp_co_loading
+   ```bash
+   npm install
+   ```
+
+2. Copy `.env.example` to `.env` and set `ADMIN_API_URL` to wherever
+   `../api` is running (`http://localhost:3010` locally), and
+   `TENANT_API_KEY` to the key issued for this company — see "Registering
+   a new freight forwarder" below.
+
+3. Start `../api` first (it must be reachable at `ADMIN_API_URL`, since
+   this app has no database of its own — see its README), then start this
+   app's dev server (port 3001):
+
+   ```bash
+   npm run dev
+   ```
+
+   Visit http://localhost:3001.
+
+## Registering a new freight forwarder
+
+There's no seed script — every deployment, including your first one, goes
+through this same onboarding path:
+
+1. In `../admin` (Service-Provider), create the company under Companies.
+   This automatically:
+   - generates its `TENANT_API_KEY`;
+   - creates a `PortalUser` row (ADMIN role, `mustChangePassword` set) for
+     the company's contact email;
+   - emails that contact a one-time password and the API key via Resend
+     (or, if `RESEND_API_KEY` isn't configured in `../admin`, logs both to
+     the server console and shows them in the admin UI instead).
+2. Set `TENANT_API_KEY` to that value in this deployment's `.env` (a fresh
+   copy of this folder, or this one if it's the first company) and
+   (re)start the server. Every login, shipment lookup, and CMS setting is
+   scoped to whatever company that key resolves to; without a valid one
+   set, this deployment shows a graceful "not configured" error
+   everywhere instead of functioning.
+3. Sign in at `/login` with the registered email and the one-time
+   password. You're forced straight to a "set a new password" page before
+   anything else works — after that you're signed out and need to log in
+   again with the real password.
+
+To rotate a leaked key: regenerate it in the Service-Provider app
+(Companies → Regenerate), then update `TENANT_API_KEY` in this
+deployment's `.env` and restart — the old key stops resolving immediately.
+
+## Running a second company's portal locally
+
+Copy this folder anywhere in the repo root (see `customer-portal-bhf/` and
+`customer-portal-ids/` for existing examples), give it a unique `name` in
+`package.json`, run its own `npm install`, point its `.env` at the same
+`ADMIN_API_URL` with its own `TENANT_API_KEY` (from a different company
+registered in Service-Provider), and give it its own port (`"dev": "next
+dev -p 3002"` in `package.json`, and update `NEXTAUTH_URL` in its `.env`
+to match). Both copies call the same `../api` instance safely — see "Data
+ownership" above.

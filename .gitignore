@@ -1,26 +1,65 @@
-# Repo-wide ignores. Each app also has its own .gitignore for its
-# build output (node_modules, .next, Flutter build dirs, etc.).
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# macOS
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
+*.pem
 
-# Dev-server logs written by run-all.sh
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# admin-uploaded media (runtime content, not source)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# rotated API key, persisted at runtime — see src/lib/apiKeyStore.ts
+/data/runtime-config.json
+
+# local logs
 logs/
 *.log
 
-# Secrets — never commit
-.env
-.env.*
-!.env.example
+# secrets — never commit
 [Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll][Ss].md
 
-# Dependencies / build output (backstop for the per-app ignores)
-node_modules/
-.next/
+# shell scripts (deploy-railway.sh) — kept local only
+*.sh
 
 # Claude Code — personal settings and runtime state
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
-# Shell scripts (run-all.sh, stop-all.sh, scripts/*.sh) — kept local only
-*.sh
+# agent instructions — kept local only
+AGENTS.md
