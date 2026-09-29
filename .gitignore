@@ -1,0 +1,26 @@
+# Repo-wide ignores. Each app also has its own .gitignore for its
+# build output (node_modules, .next, Flutter build dirs, etc.).
+
+# macOS
+.DS_Store
+
+# Dev-server logs written by run-all.sh
+logs/
+*.log
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll][Ss].md
+
+# Dependencies / build output (backstop for the per-app ignores)
+node_modules/
+.next/
+
+# Claude Code — personal settings and runtime state
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Shell scripts (run-all.sh, stop-all.sh, scripts/*.sh) — kept local only
+*.sh

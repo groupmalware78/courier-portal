@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "PackageStatus" ADD VALUE 'AT_CUSTOMS' BEFORE 'READY_FOR_PICKUP';
