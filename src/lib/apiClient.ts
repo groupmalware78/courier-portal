@@ -528,6 +528,20 @@ const globalForApiClient = globalThis as unknown as {
   apiClient: ReturnType<typeof createApiClient> | undefined;
 };
 
-export const apiClient = globalForApiClient.apiClient ?? createApiClient();
+function getApiClient(): ApiClient {
+  const client = globalForApiClient.apiClient ?? createApiClient();
+  globalForApiClient.apiClient = client;
+  return client;
+}
 
-if (process.env.NODE_ENV !== "production") globalForApiClient.apiClient = apiClient;
+// Created on first use, not at import: `next build` imports every route
+// module to collect page config, and the build environment (e.g. Railway)
+// may not have ADMIN_API_URL/TENANT_API_KEY — a missing value should fail
+// the request that needs it, not the whole build.
+export const apiClient = new Proxy({} as ApiClient, {
+  get(_target, prop) {
+    const client = getApiClient();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
